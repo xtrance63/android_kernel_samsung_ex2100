@@ -290,6 +290,13 @@ static ssize_t sel_write_disable(struct file *file, const char __user *buf,
 	int new_value;
 	int enforcing;
 
+	/* NOTE: we are now officially considering runtime disable as
+	 *       deprecated, and using it will become increasingly painful
+	 *       (e.g. sleeping/blocking) as we progress through future
+	 *       kernel releases until eventually it is removed
+	 */
+	pr_err("SELinux:  Runtime disable is deprecated, use selinux=0 on the kernel cmdline.\n");
+
 	if (count >= PAGE_SIZE)
 		return -ENOMEM;
 
@@ -312,10 +319,10 @@ static ssize_t sel_write_disable(struct file *file, const char __user *buf,
 			goto out;
 		audit_log(audit_context(), GFP_KERNEL, AUDIT_MAC_STATUS,
 			"enforcing=%d old_enforcing=%d auid=%u ses=%u"
-			" enabled=%d old-enabled=%d lsm=selinux res=1",
+			" enabled=0 old-enabled=1 lsm=selinux res=1",
 			enforcing, enforcing,
 			from_kuid(&init_user_ns, audit_get_loginuid(current)),
-			audit_get_sessionid(current), 0, 1);
+			audit_get_sessionid(current));
 	}
 
 	length = count;
@@ -1745,7 +1752,7 @@ static ssize_t sel_read_class(struct file *file, char __user *buf,
 {
 	unsigned long ino = file_inode(file)->i_ino;
 	char res[TMPBUFLEN];
-	ssize_t len = snprintf(res, sizeof(res), "%d", sel_ino_to_class(ino));
+	ssize_t len = scnprintf(res, sizeof(res), "%d", sel_ino_to_class(ino));
 	return simple_read_from_buffer(buf, count, ppos, res, len);
 }
 
@@ -1759,7 +1766,7 @@ static ssize_t sel_read_perm(struct file *file, char __user *buf,
 {
 	unsigned long ino = file_inode(file)->i_ino;
 	char res[TMPBUFLEN];
-	ssize_t len = snprintf(res, sizeof(res), "%d", sel_ino_to_perm(ino));
+	ssize_t len = scnprintf(res, sizeof(res), "%d", sel_ino_to_perm(ino));
 	return simple_read_from_buffer(buf, count, ppos, res, len);
 }
 
@@ -2127,7 +2134,7 @@ static int __init init_sel_fs(void)
 	selinux_enabled = 1;
 #endif
 // ] SEC_SELINUX_PORTING_COMMON
-	if (!selinux_enabled)
+	if (!selinux_enabled_boot)
 		return 0;
 
 	err = sysfs_create_mount_point(fs_kobj, "selinux");
